@@ -1,0 +1,4 @@
+{
+  "desc": "一碰通血压记录小程序",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

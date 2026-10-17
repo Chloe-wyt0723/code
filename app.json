@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "一碰通 · 血压记录",
+    "navigationBarBackgroundColor": "#f7f8f3",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f7f8f3",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
