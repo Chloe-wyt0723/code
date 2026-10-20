@@ -20,6 +20,7 @@ const ocrClient = new OcrClient({
 
 const recentRequests = new Map();
 const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+let requestCount = 0;
 
 function preprocessWithOpenCv(imageBase64) {
   return new Promise((resolve, reject) => {
@@ -48,6 +49,15 @@ function preprocessWithOpenCv(imageBase64) {
 
 function allowRequest(ip) {
   const now = Date.now();
+  // Prune old keys periodically so the in-memory limiter does not grow forever.
+  requestCount += 1;
+  if (requestCount % 100 === 0) {
+    for (const [key, times] of recentRequests) {
+      const active = times.filter(time => now - time < 60000);
+      if (active.length) recentRequests.set(key, active);
+      else recentRequests.delete(key);
+    }
+  }
   const recent = (recentRequests.get(ip) || []).filter(time => now - time < 60000);
   if (recent.length >= 20) return false;
   recent.push(now);
@@ -66,7 +76,11 @@ app.post('/api/ocr', async (req, res) => {
 
   let image = req.body && req.body.image;
   if (typeof image === 'string') image = image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
-  if (typeof image !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) {
+  const validBase64 = typeof image === 'string'
+    && image.length > 0
+    && image.length % 4 === 0
+    && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(image);
+  if (!validBase64) {
     return res.status(400).json({ error: '图片数据格式无效，请重新拍摄。' });
   }
   if (image.length > 10 * 1024 * 1024) {

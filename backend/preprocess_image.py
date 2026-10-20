@@ -78,6 +78,9 @@ def main():
     image = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError('Unable to decode input image')
+    height, width = image.shape[:2]
+    if width * height > 40000000:
+        raise ValueError('Image dimensions exceed the 40-megapixel limit')
 
     screen = find_screen(image)
     gray = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)

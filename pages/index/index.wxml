@@ -2,7 +2,7 @@
   <view class="brand-row">
     <image class="brand-mark" src="/0.png" mode="aspectFit" aria-hidden="true" />
     <text class="brand-name">一碰通</text>
-    <text class="profile">👵 王阿姨</text>
+    <text class="profile">👤 用户 001</text>
   </view>
 
   <view class="intro">
