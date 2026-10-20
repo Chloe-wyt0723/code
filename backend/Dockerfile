@@ -1,7 +1,10 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-opencv \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
-COPY server.js ./
+COPY server.js preprocess_image.py ./
 EXPOSE 3000
 CMD ["npm", "start"]

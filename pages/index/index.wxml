@@ -1,43 +1,45 @@
 <view class="page">
   <view class="brand-row">
-    <view class="brand-mark" aria-hidden="true">
-      <text class="heart">♥</text>
-      <text class="pulse-line">⌁</text>
-    </view>
+    <image class="brand-mark" src="/0.png" mode="aspectFit" aria-hidden="true" />
     <text class="brand-name">一碰通</text>
     <text class="profile">👵 王阿姨</text>
   </view>
 
   <view class="intro">
     <text class="title">血压记录</text>
-    <text class="subtitle">碰一下贴片，拍下血压计，轻松记下每次测量。</text>
+    <text class="subtitle">打开小程序，拍下血压计屏幕，自动识别并记录每次测量。</text>
   </view>
 
   <view class="start-card">
-    <view class="nfc-row">
-      <view class="nfc-icon"><text>⌁</text></view>
-      <view class="nfc-copy">
-        <text class="start-title">{{nfcLaunch ? '已打开血压记录' : '开始今天的测量'}}</text>
-        <text class="start-desc">{{nfcLaunch ? '贴片已连接，按下面按钮拍照' : '将手机靠近家里的 NFC 贴片'}}</text>
+    <view class="start-row">
+      <view class="camera-icon"><text>📷</text></view>
+      <view class="start-copy">
+        <text class="start-title">开始今天的测量</text>
+        <text class="start-desc">将血压计屏幕对准镜头，拍照后核对读数</text>
       </view>
     </view>
     <button class="primary" bindtap="takePhoto">📷　拍照记录血压</button>
+    <button class="album" bindtap="chooseFromAlbum">🖼️　从相册选取照片</button>
     <button class="manual" bindtap="openManualEntry">手动输入血压</button>
   </view>
 
   <view class="section-title"><text>最近一次</text><text class="section-meta">{{lastDate || '还没有记录'}}</text></view>
-  <view wx:if="latest" class="latest-card">
+  <view wx:if="{{latest}}" class="latest-card">
     <text class="record-time">{{latest.displayDate}}　·　血压 mmHg</text>
     <view class="reading"><text>{{latest.sys}}</text><text class="slash">/</text><text>{{latest.dia}}</text><text class="unit">mmHg</text></view>
     <view class="pulse-row"><text>脉搏</text><text class="pulse-value">{{latest.pulse}} <text class="unit">次/分</text></text></view>
+    <view class="record-actions"><button class="delete-record" data-date="{{latest.date}}" bindtap="deleteRecord">删除这条记录</button></view>
   </view>
   <view wx:else class="empty">完成第一次测量后，记录会显示在这里。</view>
 
   <view class="section-title"><text>历史记录</text><text class="section-meta">保存在本机</text></view>
-  <view wx:if="history.length" class="history-list">
+  <view wx:if="{{history.length}}" class="history-list">
     <view wx:for="{{history}}" wx:key="date" class="history-card">
-      <view><text class="record-time">{{item.displayDate}}</text><text class="history-pulse">脉搏 {{item.pulse}} 次/分</text></view>
-      <text class="history-reading">{{item.sys}} / {{item.dia}} <text class="unit">mmHg</text></text>
+      <view class="history-main">
+        <view><text class="record-time">{{item.displayDate}}</text><text class="history-pulse">脉搏 {{item.pulse}} 次/分</text></view>
+        <text class="history-reading">{{item.sys}} / {{item.dia}} <text class="unit">mmHg</text></text>
+      </view>
+      <button class="delete-record" data-date="{{item.date}}" bindtap="deleteRecord">删除</button>
     </view>
   </view>
   <view wx:else class="empty">目前还没有其他记录。</view>
@@ -45,20 +47,22 @@
   <view class="tip"><text class="tip-title">测量小提醒</text><text>坐好休息 5 分钟，手臂与心脏保持同高。建议每天在相近时间测量。</text></view>
 </view>
 
-<view wx:if="showConfirm" class="mask" bindtap="closeConfirm">
+<view wx:if="{{showConfirm}}" class="mask" bindtap="closeConfirm">
   <scroll-view class="dialog" scroll-y enhanced catchtap="noop">
     <view class="dialog-heading">
       <view><text class="dialog-title">核对血压读数</text><text class="dialog-subtitle">请对照血压计屏幕确认，识别可能有误。</text></view>
       <view class="close" bindtap="closeConfirm" aria-label="Close">×</view>
     </view>
-    <image wx:if="photoPath" class="photo-preview" src="{{photoPath}}" mode="aspectFit" />
+    <image wx:if="{{photoPath}}" class="photo-preview" src="{{photoPath}}" mode="aspectFit" />
     <text class="hint">{{hint}}</text>
+    <view wx:if="{{bpAlert}}" class="bp-alert"><text class="bp-alert-title">血压异常提醒</text><text>{{bpAlert}}</text></view>
     <view class="fields">
       <label>高压（收缩压）<input type="number" value="{{systolic}}" placeholder="120" data-field="systolic" bindinput="onValueInput" /></label>
       <label>低压（舒张压）<input type="number" value="{{diastolic}}" placeholder="80" data-field="diastolic" bindinput="onValueInput" /></label>
       <label>脉搏（次/分）<input type="number" value="{{pulse}}" placeholder="72" data-field="pulse" bindinput="onValueInput" /></label>
     </view>
-    <button class="rephoto" bindtap="takePhoto">重新拍照</button>
+    <button class="rephoto" bindtap="takePhoto">{{photoPath ? '重新拍照' : '拍照记录血压'}}</button>
+    <button class="album" bindtap="chooseFromAlbum">从相册重新选照片</button>
     <button class="save" bindtap="saveRecord">保存这次记录</button>
     <button class="cancel" bindtap="closeConfirm">取消，返回记录页</button>
     <text class="privacy">为识别读数，照片会发送到腾讯云 OCR；服务端不会保存原图。血压记录保存在这台手机中。</text>

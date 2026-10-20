@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const tencentcloud = require('tencentcloud-sdk-nodejs-ocr');
+const { spawn } = require('child_process');
+const path = require('path');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -17,6 +19,33 @@ const ocrClient = new OcrClient({
 });
 
 const recentRequests = new Map();
+const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+
+function preprocessWithOpenCv(imageBase64) {
+  return new Promise((resolve, reject) => {
+    const worker = spawn(pythonBin, [path.join(__dirname, 'preprocess_image.py')], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const stdout = [];
+    const stderr = [];
+    worker.stdout.on('data', chunk => stdout.push(chunk));
+    worker.stderr.on('data', chunk => stderr.push(chunk));
+    worker.on('error', reject);
+    worker.on('close', code => {
+      if (code !== 0) {
+        reject(new Error(Buffer.concat(stderr).toString('utf8') || `OpenCV worker exited with code ${code}`));
+        return;
+      }
+      const processed = Buffer.concat(stdout).toString('utf8').trim();
+      if (!processed || !/^[A-Za-z0-9+/]+={0,2}$/.test(processed)) {
+        reject(new Error('OpenCV returned invalid image data'));
+        return;
+      }
+      resolve(processed);
+    });
+    worker.stdin.on('error', reject);
+    worker.stdin.end(imageBase64, 'utf8');
+  });
+}
+
 function allowRequest(ip) {
   const now = Date.now();
   const recent = (recentRequests.get(ip) || []).filter(time => now - time < 60000);
@@ -45,21 +74,36 @@ app.post('/api/ocr', async (req, res) => {
   }
 
   try {
+    const processedImage = await preprocessWithOpenCv(image);
     const sdkResult = await ocrClient.GeneralAccurateOCR({
-      ImageBase64: image,
+      ImageBase64: processedImage,
       ConfigID: 'OCR',
       EnableDetectText: true
     });
-    const result = sdkResult.Response || sdkResult;
-    const text = (result.TextDetections || [])
+    let result = sdkResult.Response || sdkResult;
+    let detections = result.TextDetections || [];
+
+    // A thresholded crop is useful for LCD digits, but some screens OCR better
+    // from the original photo. Retry that photo when preprocessing found no text.
+    if (detections.length === 0) {
+      const fallback = await ocrClient.GeneralAccurateOCR({
+        ImageBase64: image,
+        ConfigID: 'OCR',
+        EnableDetectText: true
+      });
+      result = fallback.Response || fallback;
+      detections = result.TextDetections || [];
+    }
+
+    const text = detections
       .map(item => item.DetectedText || '')
       .filter(Boolean)
       .join('\n');
     return res.json({ text, requestId: result.RequestId || '' });
   } catch (error) {
-    console.error('Tencent OCR request failed:', error && (error.message || error));
+    console.error('Image preprocessing or Tencent OCR failed:', error && (error.message || error));
     return res.status(502).json({
-      error: '腾讯云 OCR 识别失败，请检查服务端密钥、OCR 服务开通状态和图片质量。'
+      error: '图片预处理或腾讯云 OCR 识别失败，请检查服务端 OpenCV 环境、OCR 密钥和图片质量。'
     });
   }
 });

@@ -1,5 +1,5 @@
 App({
   onLaunch() {
-    // NFC Scheme 进入页面后由 pages/index/index 的 onLoad 处理入口提示。
+    // 小程序启动后由首页提供拍照识别入口。
   }
 });
